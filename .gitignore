@@ -32,3 +32,4 @@ coverage/
 # Misc
 .cache/
 .temp/
+.dev.vars

@@ -1,23 +1,61 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { ProxyToSelf } from "workers-mcp";
-import axios from "axios";
 
 export interface Env {
   OPENWEATHERMAP_API_KEY: string;
   SHARED_SECRET: string;
 }
 
-export default class WeatherServer extends WorkerEntrypoint<Env> {
-  async get_weather(city: string): Promise<string> {
-    const url = `http://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${this.env.OPENWEATHERMAP_API_KEY}&units=metric`;
+export default class MyWorker extends WorkerEntrypoint<Env> {
+  /**
+   *
+   * Returns a random playing card
+   * @returns {string} the name of random playing card
+   */
+  getRandomCard(): string {
+    const suits = ["Hearts", "Diamonds", "Clubs", "Spades"];
+    const values = [
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "Jack",
+      "Queen",
+      "King",
+      "Ace",
+    ];
+
+    const randomSuit = suits[Math.floor(Math.random() * suits.length)];
+    const randomValue = values[Math.floor(Math.random() * values.length)];
+
+    return `${randomValue} of ${randomSuit}`;
+  }
+  /**
+   *Get weather data direclty from claude
+   * @param cityName {string} the name of the city from where we need the weather.
+   * @returns {string} the weather for the respective city
+   */
+  async getWeatherData(cityName: string): Promise<string> {
+    const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${cityName}&appid=${this.env.OPENWEATHERMAP_API_KEY}&units=metric`;
+
     try {
-      const response = await axios.get(url);
-      const data = response.data;
-      const temp = data.main.temp;
-      const desc = data.weather[0].description;
-      return `${city}: ${temp}°C, ${desc}`;
-    } catch (error) {
-      return "Couldn't fetch weather data.";
+      const response = await fetch(apiUrl);
+      if (!response.ok) {
+        throw new Error("Weather data not found");
+      }
+
+      const data: any = await response.json();
+      const temperature = data.main.temp;
+      const description = data.weather[0].description;
+
+      return `Current weather in ${cityName}: ${temperature}°C, ${description}`;
+    } catch (error: any) {
+      return `Error fetching weather data: ${error.message}`;
     }
   }
 
