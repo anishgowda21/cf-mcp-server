@@ -4,6 +4,7 @@ import { ProxyToSelf } from "workers-mcp";
 export interface Env {
   OPENWEATHERMAP_API_KEY: string;
   SHARED_SECRET: string;
+  IPINFO_API_KEY: string;
 }
 
 export default class MyWorker extends WorkerEntrypoint<Env> {
@@ -56,6 +57,42 @@ export default class MyWorker extends WorkerEntrypoint<Env> {
       return `Current weather in ${cityName}: ${temperature}°C, ${description}`;
     } catch (error: any) {
       return `Error fetching weather data: ${error.message}`;
+    }
+  }
+  /**
+   * Get IP address details of the client
+   * @param ipAddr {string} is the ip addr whose details we wanna get if we want to get self ip details ipAddr will be "me"
+   * @returns {string} A string containing IP information
+   */
+  async getIpDetails(ipAddr: string): Promise<string> {
+    try {
+      const targetURL =
+        ipAddr === "me"
+          ? `https://api.ipgeolocation.io/ipgeo?apiKey=${this.env.IPINFO_API_KEY}`
+          : `https://api.ipgeolocation.io/ipgeo?apiKey=${this.env.IPINFO_API_KEY}&ip=${ipAddr}`;
+
+      const response = await fetch(targetURL);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch IP");
+      }
+
+      const data: any = await response.json();
+
+      let result = "";
+      Object.entries(data).forEach(([key, value]: [string, any]) => {
+        if (value !== "" && value !== false) {
+          if (typeof value === "object" && value !== null) {
+            result += `ip details ${key} - ${JSON.stringify(value)}\n`;
+          } else {
+            result += `ip details ${key} - ${value}\n`;
+          }
+        }
+      });
+
+      return result;
+    } catch (error: any) {
+      return `Error fetching IP: ${error.message}`;
     }
   }
 
