@@ -10,40 +10,12 @@ export interface Env {
 }
 
 interface FetchParams {
-  headers?: Record<string, string>; // e.g., {"Content-Type": "application/json"}
-  body?: string; // e.g., "{\"key\": \"value\"}" for POST
-  [key: string]: any; // Allow other fetch options if needed
+  headers?: Record<string, string>;
+  body?: BodyInit | null;
+  [key: string]: any;
 }
 
 export default class MyWorker extends WorkerEntrypoint<Env> {
-  /**
-   *
-   * Returns a random playing card
-   * @returns {string} the name of random playing card
-   */
-  getRandomCard(): string {
-    const suits = ["Hearts", "Diamonds", "Clubs", "Spades"];
-    const values = [
-      "2",
-      "3",
-      "4",
-      "5",
-      "6",
-      "7",
-      "8",
-      "9",
-      "10",
-      "Jack",
-      "Queen",
-      "King",
-      "Ace",
-    ];
-
-    const randomSuit = suits[Math.floor(Math.random() * suits.length)];
-    const randomValue = values[Math.floor(Math.random() * values.length)];
-
-    return `${randomValue} of ${randomSuit}`;
-  }
   /**
    *Get weather data direclty from claude
    * @param cityName {string} the name of the city from where we need the weather.
@@ -151,10 +123,17 @@ export default class MyWorker extends WorkerEntrypoint<Env> {
     params: FetchParams = {}
   ): Promise<string> {
     try {
+      const fetchParams = { ...params };
+
+      // If body exists and is not already a string, stringify it
+      if (params.body && typeof params.body === "object") {
+        fetchParams.body = JSON.stringify(params.body);
+      }
+
       // Make the fetch request with the specified URL, method, and params
       const response: Response = await fetch(url, {
-        method: method.toUpperCase(), // Ensure method is uppercase (e.g., "get" -> "GET")
-        ...params, // Spread optional params (headers, body, etc.)
+        method: method.toUpperCase(),
+        ...fetchParams,
       });
 
       // Check if the response is successful (status 200-299)
