@@ -5,6 +5,14 @@ export interface Env {
   OPENWEATHERMAP_API_KEY: string;
   SHARED_SECRET: string;
   IPINFO_API_KEY: string;
+  GOOGLE_API_KEY: string;
+  GOOGLE_CX: string;
+}
+
+interface FetchParams {
+  headers?: Record<string, string>; // e.g., {"Content-Type": "application/json"}
+  body?: string; // e.g., "{\"key\": \"value\"}" for POST
+  [key: string]: any; // Allow other fetch options if needed
 }
 
 export default class MyWorker extends WorkerEntrypoint<Env> {
@@ -93,6 +101,77 @@ export default class MyWorker extends WorkerEntrypoint<Env> {
       return result;
     } catch (error: any) {
       return `Error fetching IP: ${error.message}`;
+    }
+  }
+
+  /**
+   * Perform a web search using Google Custom Search JSON API
+   * @param query {string} the search query to send to Google
+   * @param num {number} optional number of results (1-10, defaults to 5)
+   * @returns {string} the entire JSON response from Google as a string
+   */
+
+  async googleWebSearch(query: string, num: number = 5): Promise<string> {
+    // Ensure num is between 1 and 10 (Google's API limit)
+    const resultCount = Math.min(Math.max(num, 1), 10);
+    const apiUrl = `https://www.googleapis.com/customsearch/v1?key=${
+      this.env.GOOGLE_API_KEY
+    }&cx=${this.env.GOOGLE_CX}&q=${encodeURIComponent(
+      query
+    )}&num=${resultCount}`;
+
+    try {
+      const response = await fetch(apiUrl);
+      if (!response.ok) {
+        const errData = await response.text();
+        throw new Error(
+          `Google API error: ${response.status} ${response.statusText} ${errData}`
+        );
+      }
+
+      const data = await response.json();
+      // Return the entire JSON as a string
+      return JSON.stringify(data);
+    } catch (error: any) {
+      return `Error fetching Google search results: ${error.message}`;
+    }
+  }
+
+  /**
+   * Makes a generic HTTP fetch request to a specified URL with a given method and optional parameters.
+   * This allows Claude to request data from any URL, with full control over method and fetch options.
+   * @param url - The URL{string} to fetch (e.g., "https://api.example.com/data").
+   * @param method - The HTTP{string} method to use (e.g., "GET", "POST", "PUT"), case-insensitive.
+   * @param params - Optional fetch{FetchParams} parameters like headers or body (defaults to an empty object).
+   * @returns {string}A string containing the raw response text from the URL, or an error message if the request fails.
+   */
+  async makeRequest(
+    url: string,
+    method: string,
+    params: FetchParams = {}
+  ): Promise<string> {
+    try {
+      // Make the fetch request with the specified URL, method, and params
+      const response: Response = await fetch(url, {
+        method: method.toUpperCase(), // Ensure method is uppercase (e.g., "get" -> "GET")
+        ...params, // Spread optional params (headers, body, etc.)
+      });
+
+      // Check if the response is successful (status 200-299)
+      if (!response.ok) {
+        const errData = await response.text();
+        throw new Error(
+          `Request failed: ${response.status} ${errData} ${response.statusText}`
+        );
+      }
+
+      // Return the raw text response from the URL
+      return await response.text();
+    } catch (error: unknown) {
+      // Return a stringified error message if the request fails
+      return `Error making request: ${
+        error instanceof Error ? error.message : String(error)
+      }`;
     }
   }
 
